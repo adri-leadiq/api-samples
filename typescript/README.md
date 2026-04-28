@@ -22,7 +22,7 @@ Ready-to-run TypeScript scripts that show you how to use the LeadIQ API. No prio
    ```
    node --version
    ```
-   You should see something like `v20.12.0`.
+   You should see something like `v24.0.0`.
 
 ### Mac
 
@@ -32,18 +32,20 @@ Ready-to-run TypeScript scripts that show you how to use the LeadIQ API. No prio
    ```
    node --version
    ```
-   You should see something like `v20.12.0`.
+   You should see something like `v24.0.0`.
 
 ### Linux
 
-Most Linux distributions can install Node.js via a package manager:
+The Node.js version bundled with most Linux distributions is often outdated. Use the official installer script from NodeSource to get Node.js 24:
 
 ```bash
 # Ubuntu / Debian
-sudo apt update && sudo apt install nodejs npm
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+sudo apt install -y nodejs
 
 # Fedora
-sudo dnf install nodejs npm
+curl -fsSL https://rpm.nodesource.com/setup_24.x | sudo bash -
+sudo dnf install -y nodejs
 ```
 
 Then verify:
