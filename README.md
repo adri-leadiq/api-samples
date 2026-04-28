@@ -1,31 +1,46 @@
 # LeadIQ API Samples
 
-Ready-to-run code samples showing how to use the LeadIQ API across multiple languages.
+Ready-to-run code samples showing how to use the LeadIQ API. Each language folder is self-contained — pick the one that fits your setup and follow its README.
 
 ---
 
-## Languages
+## Samples
 
-| Folder | Language | Status |
-|--------|----------|--------|
-| [`python/`](python/README.md) | Python | Available |
-| [`typescript/`](typescript/README.md) | TypeScript | Available |
-| [`bash/`](bash/README.md) | Bash | Available |
+| Folder | Language | Requirements |
+|--------|----------|--------------|
+| [`bash/`](bash/README.md) | Bash | `curl` (pre-installed on most systems) |
+| [`python/`](python/README.md) | Python | Python 3.10+ |
+| [`typescript/`](typescript/README.md) | TypeScript | Node.js 24+ |
+
+Each folder contains three scripts that build on each other:
+
+| # | Script | What it does | Credits |
+|---|--------|-------------|---------|
+| 01 | `check_usage` | Verify your API key and view your credit balance | None |
+| 02 | `advanced_search` | Search for people by role, seniority, and location | 1 per page |
+| 03 | `enrich_profiles` | Enrich each person with their work email and direct phone | 1 per person |
 
 ---
 
-## API Overview
+## API key
 
-- **GraphQL API** — `https://api.leadiq.com/graphql` — people, companies, and account management
-- **REST API** — `https://prospector.leadiq.com` — prospecting endpoints
+All samples authenticate with a **Secret Base64 API key**. Find yours in LeadIQ under **Settings → API Keys**.
 
-You will need a **Secret Base64 API key** from LeadIQ under **Settings → API Keys** to authenticate.
+- **Python / TypeScript** — add the key to a `.env` file (see the folder README)
+- **Bash** — export it in your terminal: `export LEADIQ_API_KEY=your_key`
+
+---
+
+## API overview
+
+- **GraphQL API** — `https://api.leadiq.com/graphql` — used by all samples
+- **REST API** — `https://prospector.leadiq.com` — additional prospecting endpoints
 
 ---
 
 ## Docker
 
-If you prefer not to install a language runtime locally, a Docker setup is available in [`_docker/`](_docker/DOCKER.md). Currently supports the Python samples.
+Prefer not to install anything locally? A Docker setup in [`_docker/`](_docker/DOCKER.md) covers all three languages. You only need Docker Desktop.
 
 ---
 
