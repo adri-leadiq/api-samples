@@ -1,0 +1,7 @@
+services:
+  leadiq:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - .:/app
