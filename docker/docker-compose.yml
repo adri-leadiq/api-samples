@@ -1,4 +1,5 @@
 services:
+  # Python samples
   leadiq:
     build:
       context: ..
@@ -7,3 +8,17 @@ services:
       - ../python/.env
     volumes:
       - ../python:/app
+
+  # TypeScript samples
+  leadiq-ts:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.typescript
+    env_file:
+      - ../typescript/.env
+    volumes:
+      - ../typescript:/app
+      # Preserve the node_modules installed during the Docker build.
+      # Without this line, mounting ../typescript:/app would hide the
+      # container's node_modules and the scripts would fail to run.
+      - /app/node_modules

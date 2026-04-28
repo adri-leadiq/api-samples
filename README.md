@@ -9,7 +9,7 @@ Ready-to-run code samples showing how to use the LeadIQ API across multiple lang
 | Folder | Language | Status |
 |--------|----------|--------|
 | [`python/`](python/README.md) | Python | Available |
-| `typescript/` | TypeScript | Coming soon |
+| [`typescript/`](typescript/README.md) | TypeScript | Available |
 
 ---
 
