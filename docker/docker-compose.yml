@@ -1,9 +1,9 @@
 services:
   # Python samples
-  leadiq:
+  leadiq-python:
     build:
       context: ..
-      dockerfile: docker/Dockerfile
+      dockerfile: docker/Dockerfile.python
     env_file:
       - ../python/.env
     volumes:

@@ -44,8 +44,8 @@ docker compose build
 This builds both the Python and TypeScript images. To build only one:
 
 ```bash
-docker compose build leadiq       # Python only
-docker compose build leadiq-ts    # TypeScript only
+docker compose build leadiq-python    # Python only
+docker compose build leadiq-ts        # TypeScript only
 ```
 
 ---
@@ -57,9 +57,9 @@ docker compose build leadiq-ts    # TypeScript only
 From the `docker/` directory:
 
 ```bash
-docker compose run --rm leadiq python graphql/01_check_usage.py
-docker compose run --rm leadiq python graphql/02_advanced_search.py
-docker compose run --rm leadiq python graphql/03_enrich_profiles.py
+docker compose run --rm leadiq-python python graphql/01_check_usage.py
+docker compose run --rm leadiq-python python graphql/02_advanced_search.py
+docker compose run --rm leadiq-python python graphql/03_enrich_profiles.py
 ```
 
 ### TypeScript

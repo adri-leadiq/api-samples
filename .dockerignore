@@ -1,0 +1,25 @@
+# Version control
+.git/
+
+# API keys — never bake secrets into images
+**/.env
+
+# Python artifacts
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+python/.venv/
+python/venv/
+python/dist/
+python/build/
+
+# Node / TypeScript artifacts
+**/node_modules/
+**/*.tsbuildinfo
+typescript/dist/
+
+# Generated output files (not needed to run the scripts)
+**/output/
+
+# Editor / OS
+**/.DS_Store
