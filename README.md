@@ -4,7 +4,7 @@ Ready-to-run code samples showing how to use the LeadIQ API. Each language folde
 
 ---
 
-## Samples
+## Languages
 
 | Folder | Language | Requirements |
 |--------|----------|--------------|
