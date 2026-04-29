@@ -122,6 +122,20 @@ Replace the script path with whichever sample you want to run.
 
 ## Samples
 
+### Full pipeline
+
+If you want to run the complete workflow in a single command, use:
+
+```bash
+python full_pipeline.py
+```
+
+This script runs all steps end-to-end — search, enrich, create list, add prospects, export — entirely in memory. The only output is `output/pipeline_prospects.csv`.
+
+---
+
+The individual scripts below are numbered and build on each other. Run them in order if you want to inspect the output at each step.
+
 ### GraphQL API (`graphql/`)
 
 The GraphQL API endpoint is `https://api.leadiq.com/graphql`. It supports rich queries for people, companies, and account management.
@@ -193,7 +207,55 @@ Saved to output/enriched_profiles.json
 
 ### REST API (`rest/`)
 
-The REST API endpoint is `https://prospector.leadiq.com`. Samples coming soon.
+The REST API endpoint is `https://prospector.leadiq.com`. It manages Prospector lists and prospects.
+
+| Script | What it does | Credits used |
+|--------|-------------|--------------|
+| `rest/04_create_prospector_list.py` | Creates a list named "Sales Leaders in New Hampshire" in the Prospector — saves the list details to `output/prospector_list.json` | None |
+| `rest/05_add_prospects_to_list.py` | Reads `output/enriched_profiles.json` and adds each person to the list as a prospect — saves results to `output/added_prospects.json` | None |
+| `rest/06_export_list_to_csv.py` | Fetches all prospects from the list and saves them to `output/prospects.csv` — ready to open in Excel or Google Sheets | None |
+
+Expected output for `04_create_prospector_list.py`:
+
+```
+Creating list "Sales Leaders in New Hampshire"... done.
+
+  ID         : 6627e3f1a2b3c4d5e6f70001
+  Name       : Sales Leaders in New Hampshire
+  Created at : 2026-04-29T14:22:31.000Z
+
+Saved to  : output/prospector_list.json
+```
+
+Expected output for `05_add_prospects_to_list.py`:
+
+```
+List       : Sales Leaders in New Hampshire
+List ID    : 6627e3f1a2b3c4d5e6f70001
+Profiles   : 10
+
+[1/10] Jane Smith ... added
+[2/10] John Doe ... added
+[3/10] Alice Johnson ... added
+...
+[10/10] Bob Williams ... added
+
+Added   : 10
+Skipped : 0
+Saved to  : output/added_prospects.json
+```
+
+Expected output for `06_export_list_to_csv.py`:
+
+```
+List    : Sales Leaders in New Hampshire
+List ID : 6627e3f1a2b3c4d5e6f70001
+
+Fetching page 1... 10 prospects
+
+Total   : 10 prospects retrieved
+Saved to: output/prospects.csv
+```
 
 ---
 
@@ -201,10 +263,11 @@ The REST API endpoint is `https://prospector.leadiq.com`. Samples coming soon.
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| `LEADIQ_API_KEY is not set` | `.env` file is missing or empty | Follow Setup steps 5 above |
+| `LEADIQ_API_KEY is not set` | `.env` file is missing or empty | Follow Setup step 5 above |
 | `Error: Invalid API key` | The key in `.env` is wrong | Double-check you copied the **Secret Base64** key from LeadIQ Settings → API Keys |
 | `Error 402: Insufficient credits` | Your account has no credits left | Log in to LeadIQ and check your plan |
 | `Too many requests` | Requests sent too quickly | Wait a moment and try again |
+| `A list with this name already exists` | Sample 04 was already run | Delete the list in LeadIQ or change `LIST_NAME` in the script |
 
 ---
 

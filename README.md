@@ -12,13 +12,27 @@ Ready-to-run code samples showing how to use the LeadIQ API. Each language folde
 | [`python/`](python/README.md) | Python | Python 3.10+ |
 | [`typescript/`](typescript/README.md) | TypeScript | Node.js 24+ |
 
-Each folder contains three scripts that build on each other:
+---
+
+## Samples
+
+The scripts are numbered and build on each other. Run them in order for the full end-to-end workflow, or use the **full pipeline** script to run everything at once and get a single CSV as output.
+
+### GraphQL API
 
 | # | Script | What it does | Credits |
 |---|--------|-------------|---------|
 | 01 | `check_usage` | Verify your API key and view your credit balance | None |
-| 02 | `advanced_search` | Search for people by role, seniority, and location | 1 per page |
+| 02 | `advanced_search` | Search for people by role, seniority, and location — saves their IDs | 1 per page |
 | 03 | `enrich_profiles` | Enrich each person with their work email and direct phone | 1 per person |
+
+### Prospector REST API
+
+| # | Script | What it does | Credits |
+|---|--------|-------------|---------|
+| 04 | `create_prospector_list` | Create a Prospector list named "Sales Leaders in New Hampshire" | None |
+| 05 | `add_prospects_to_list` | Add the enriched profiles to the list as prospects | None |
+| 06 | `export_list_to_csv` | Fetch all prospects from the list and export to a CSV file | None |
 
 ---
 
@@ -33,8 +47,8 @@ All samples authenticate with a **Secret Base64 API key**. Find yours in LeadIQ 
 
 ## API overview
 
-- **GraphQL API** — `https://api.leadiq.com/graphql` — used by all samples
-- **REST API** — `https://prospector.leadiq.com` — additional prospecting endpoints
+- **GraphQL API** — `https://api.leadiq.com/graphql` — used by samples 01–03
+- **Prospector REST API** — `https://prospector.leadiq.com` — used by samples 04–06
 
 ---
 

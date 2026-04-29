@@ -56,7 +56,13 @@ docker compose build leadiq-bash     # Bash only
 
 ## Running a sample
 
-### Python
+### Python — Full pipeline (single command)
+
+```bash
+docker compose run --rm leadiq-python python full_pipeline.py
+```
+
+### Python — GraphQL API
 
 ```bash
 docker compose run --rm leadiq-python python graphql/01_check_usage.py
@@ -64,7 +70,15 @@ docker compose run --rm leadiq-python python graphql/02_advanced_search.py
 docker compose run --rm leadiq-python python graphql/03_enrich_profiles.py
 ```
 
-### TypeScript
+### Python — Prospector REST API
+
+```bash
+docker compose run --rm leadiq-python python rest/04_create_prospector_list.py
+docker compose run --rm leadiq-python python rest/05_add_prospects_to_list.py
+docker compose run --rm leadiq-python python rest/06_export_list_to_csv.py
+```
+
+### TypeScript — GraphQL API
 
 ```bash
 docker compose run --rm leadiq-ts npx ts-node graphql/01_check_usage.ts
@@ -72,7 +86,7 @@ docker compose run --rm leadiq-ts npx ts-node graphql/02_advanced_search.ts
 docker compose run --rm leadiq-ts npx ts-node graphql/03_enrich_profiles.ts
 ```
 
-### Bash
+### Bash — GraphQL API
 
 ```bash
 docker compose run --rm leadiq-bash bash graphql/01_check_usage.sh
@@ -88,3 +102,4 @@ docker compose run --rm leadiq-bash bash graphql/03_enrich_profiles.sh
 - The source directories are mounted as volumes so edits to scripts take effect immediately without rebuilding.
 - For the TypeScript service, `node_modules` is kept inside the container and is not affected by the volume mount — so you do not need to run `npm install` locally.
 - For the Bash service, `LEADIQ_API_KEY` is read from your current shell environment rather than an `.env` file — make sure you have run `export LEADIQ_API_KEY=...` before running `docker compose`.
+- Output files (JSON, CSV) written by the scripts are saved to the `output/` folder inside the language directory and are accessible on your machine after the container exits.
