@@ -38,7 +38,14 @@ OUTPUT_FILE="$SCRIPT_DIR/../output/advanced_search_ids.txt"
 
 # ── Query ──────────────────────────────────────────────────────────────────────
 
-# We only ask for the id field here. Add more fields if you need them.
+# This query asks the API to find people matching our filters and return:
+#   totalPeople — the overall count of matches (so we know how many pages to fetch)
+#   id          — each person's unique LeadIQ ID
+#
+# We intentionally request only the id field here, not names or contact info.
+# Names and emails are fetched in the next script (03_enrich_profiles.sh) one
+# person at a time, which lets you control exactly how many Enrich credits you
+# spend rather than enriching the entire search result at once.
 QUERY='query FlatAdvancedSearch($input: FlatSearchInput!) { flatAdvancedSearch(input: $input) { totalPeople people { id } } }'
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -110,8 +117,10 @@ while true; do
     echo ""
   fi
 
-  # Extract person IDs from this page and append them to the output file.
-  # Each ID looks like: "id":"PersonID-xxxxxxxx-..."
+  # Extract every person ID from this page and append them to the output file.
+  # The API returns IDs inside the JSON as:  "id":"PersonID-xxxxxxxx-..."
+  # grep finds all occurrences of that pattern; cut strips the surrounding
+  # quotes so each line in the file contains only the raw ID string.
   echo "$response" | grep -oE '"id":"[^"]+"' | cut -d'"' -f4 >> "$OUTPUT_FILE"
 
   page_count=$(echo "$response" | grep -oE '"id":"[^"]+"' | wc -l | tr -d ' ')

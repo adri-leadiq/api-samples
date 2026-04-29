@@ -49,6 +49,18 @@ DELAY_BETWEEN_CALLS=1
 
 # ── Query ──────────────────────────────────────────────────────────────────────
 
+# This query looks up a single person by their LeadIQ ID and returns:
+#   id                          — confirms we got the right person
+#   name.fullName / first / last — their display name and name parts
+#   currentPositions[].title    — their job title
+#   currentPositions[].companyInfo.name — the company they work at
+#   currentPositions[].emails[] — work email addresses linked to that job
+#   personalPhones[]            — direct (personal) phone numbers
+#
+# Note: The bash version of this script picks the first available email and
+# phone it finds in the response. The Python and TypeScript versions apply
+# confidence ranking to choose the best address — bash cannot do that
+# without a JSON parser like jq, so results may occasionally differ.
 QUERY='query SearchPeople($input: SearchPeopleInput!) { searchPeople(input: $input) { totalResults results { id name { fullName first last } currentPositions { title companyInfo { name } emails { value status } } personalPhones { value type status } } } }'
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -71,30 +83,36 @@ fetch_person() {
   }
 }
 
-# Extract a simple field value from the JSON response using grep + cut.
-# This works for flat string fields like "fullName":"Jane Smith".
+# Extract a top-level string field from the JSON response.
+# Works for any field that looks like  "fieldName":"some value"  in the JSON.
+# If the field appears more than once, only the first occurrence is returned.
 # Arguments: $1 = full JSON string, $2 = field name to look up
+# Example:   extract_field "$response" "fullName"  →  Jane Smith
 extract_field() {
   echo "$1" | grep -oE "\"$2\":\"[^\"]*\"" | head -1 | cut -d'"' -f4
 }
 
-# Extract the first work email from the response.
-# Work emails live inside currentPositions[].emails[] — any email found
-# there is a work email tied to that job.
-# We skip Invalid and Suppressed addresses and take the first remaining one.
+# Extract the first work email address from the response.
+# Email addresses appear in the JSON as  "value":"jane@example.com"  and are
+# easy to spot because they always contain an @ sign.  We grab the first
+# "value" field whose content contains @, which is a work email from
+# currentPositions[].emails[].
+#
+# Limitation: this picks the first email address found anywhere in the
+# response. It does not check the "status" field or rank by confidence the
+# way the Python and TypeScript versions do.
 extract_work_email() {
   local response="$1"
-  # Extract all "value":"..." entries that look like email addresses.
-  # The @-sign distinguishes emails from other string values.
   echo "$response" | grep -oE '"value":"[^"@]*@[^"]+"' | head -1 | cut -d'"' -f4
 }
 
-# Extract the first personal phone from the personalPhones section.
-# We look for phone values that appear after the "personalPhones" key.
+# Extract the first personal (direct) phone number from the response.
+# Phone numbers live under the "personalPhones" key, separate from work phones.
+# The first grep isolates the personalPhones array from the rest of the JSON
+# so we don't accidentally pick up a value field from a different section.
+# The second grep then finds the first "value":"..." entry inside that array.
 extract_personal_phone() {
   local response="$1"
-  # Extract the portion of the JSON that starts at "personalPhones",
-  # then grab the first "value" field inside it.
   echo "$response" | grep -oE '"personalPhones":\[(\{[^]]*\})*' | \
     grep -oE '"value":"[^"]+"' | head -1 | cut -d'"' -f4
 }
