@@ -50,6 +50,20 @@ Replace the script path with whichever sample you want to run.
 
 ## Samples
 
+### Full pipeline
+
+If you want to run the complete workflow in a single command, use:
+
+```bash
+bash full_pipeline.sh
+```
+
+This script runs all steps end-to-end — search, enrich, create list, add prospects, export — entirely in memory. The only output is `output/pipeline_prospects.csv`.
+
+---
+
+The individual scripts below are numbered and build on each other. Run them in order if you want to inspect the output at each step.
+
 ### GraphQL API (`graphql/`)
 
 | Script | What it does | Credits used |
@@ -109,6 +123,56 @@ Saved to  : output/enriched_profiles.txt
 
 ---
 
+### REST API (`rest/`)
+
+The REST API endpoint is `https://prospector.leadiq.com`. It manages Prospector lists and prospects.
+
+| Script | What it does | Credits used |
+|--------|-------------|--------------|
+| `rest/04_create_prospector_list.sh` | Creates a list named "Sales Leaders in New Hampshire" in the Prospector — saves the list ID to `output/prospector_list_id.txt` | None |
+| `rest/05_add_prospects_to_list.sh` | Reads `output/enriched_profiles.txt` and adds each person to the list as a prospect | None |
+| `rest/06_export_list_to_csv.sh` | Fetches all prospects from the list and saves them to `output/prospects.csv` — ready to open in Excel or Google Sheets | None |
+
+Expected output for `04_create_prospector_list.sh`:
+
+```
+Creating list "Sales Leaders in New Hampshire"...
+Done.
+
+  ID         : 6627e3f1a2b3c4d5e6f70001
+  Name       : Sales Leaders in New Hampshire
+  Created at : 2026-04-29T14:22:31.000Z
+
+Saved to: output/prospector_list_id.txt
+```
+
+Expected output for `05_add_prospects_to_list.sh`:
+
+```
+List ID  : 6627e3f1a2b3c4d5e6f70001
+Profiles : 10
+
+[1/10] Jane Smith ... added
+[2/10] John Doe ... added
+...
+
+Added   : 10
+Skipped : 0
+```
+
+Expected output for `06_export_list_to_csv.sh`:
+
+```
+List ID : 6627e3f1a2b3c4d5e6f70001
+
+Fetching page 1... 10 prospects
+
+Total   : 10 prospects retrieved
+Saved to: output/prospects.csv
+```
+
+---
+
 ## Troubleshooting
 
 | Error | Cause | Fix |
@@ -118,6 +182,7 @@ Saved to  : output/enriched_profiles.txt
 | `Error 402: Insufficient credits` | No credits left | Log in to LeadIQ and check your plan |
 | `Too many requests` | Requests sent too quickly | Wait a moment and try again |
 | `curl: command not found` | curl not installed | See install instructions above |
+| `A list with this name already exists` | Sample 04 was already run | Delete the list in LeadIQ or change `LIST_NAME` in the script |
 
 ---
 

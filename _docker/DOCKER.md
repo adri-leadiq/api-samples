@@ -78,6 +78,12 @@ docker compose run --rm leadiq-python python rest/05_add_prospects_to_list.py
 docker compose run --rm leadiq-python python rest/06_export_list_to_csv.py
 ```
 
+### TypeScript — Full pipeline (single command)
+
+```bash
+docker compose run --rm leadiq-ts npx ts-node full_pipeline.ts
+```
+
 ### TypeScript — GraphQL API
 
 ```bash
@@ -86,12 +92,34 @@ docker compose run --rm leadiq-ts npx ts-node graphql/02_advanced_search.ts
 docker compose run --rm leadiq-ts npx ts-node graphql/03_enrich_profiles.ts
 ```
 
+### TypeScript — Prospector REST API
+
+```bash
+docker compose run --rm leadiq-ts npx ts-node rest/04_create_prospector_list.ts
+docker compose run --rm leadiq-ts npx ts-node rest/05_add_prospects_to_list.ts
+docker compose run --rm leadiq-ts npx ts-node rest/06_export_list_to_csv.ts
+```
+
+### Bash — Full pipeline (single command)
+
+```bash
+docker compose run --rm leadiq-bash bash full_pipeline.sh
+```
+
 ### Bash — GraphQL API
 
 ```bash
 docker compose run --rm leadiq-bash bash graphql/01_check_usage.sh
 docker compose run --rm leadiq-bash bash graphql/02_advanced_search.sh
 docker compose run --rm leadiq-bash bash graphql/03_enrich_profiles.sh
+```
+
+### Bash — Prospector REST API
+
+```bash
+docker compose run --rm leadiq-bash bash rest/04_create_prospector_list.sh
+docker compose run --rm leadiq-bash bash rest/05_add_prospects_to_list.sh
+docker compose run --rm leadiq-bash bash rest/06_export_list_to_csv.sh
 ```
 
 ---
