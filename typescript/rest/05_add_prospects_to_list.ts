@@ -50,25 +50,51 @@ interface ProspectorList {
   name: string;
 }
 
-// Shape of a profile from enriched_profiles.json.
+// Shape of a profile from enriched_profiles.json — must mirror the shape
+// emitted by 03_enrich_profiles.ts.
 interface EnrichedProfile {
   id: string;
   full_name: string | null;
   first_name: string | null;
   last_name: string | null;
   title: string | null;
+  seniority: string | null;
+  function: string | null;
   company: string | null;
   work_email: string | null;
+  work_email_status: string | null;
   direct_phone: string | null;
+  linkedin_url: string | null;
 }
+
+// Allowed values for `emailStatus` and `seniority` on the Prospector API
+// input.  Anything else gets a 400 from the server, so we filter
+// client-side and drop the field rather than fail the whole add.
+const ALLOWED_EMAIL_STATUSES = new Set([
+  "Verified",
+  "VerifiedLikely",
+  "Unverified",
+]);
+const ALLOWED_SENIORITIES = new Set([
+  "VP",
+  "Manager",
+  "Director",
+  "Executive",
+  "SeniorIndividualContributor",
+  "Other",
+]);
 
 interface ProspectInput {
   firstName: string;
   lastName: string;
   title?: string;
+  seniority?: string;
+  function?: string;
   company?: string;
   workEmail?: string;
+  emailStatus?: string;
   mobilePhone?: string;
+  linkedinUrl?: string;
 }
 
 interface Prospect {
@@ -120,6 +146,19 @@ async function addProspect(
   // direct_phone comes from personalPhones in the enrichment step.
   // The Prospector API stores this as a mobile phone number.
   if (profile.direct_phone) body.mobilePhone = profile.direct_phone;
+  if (profile.linkedin_url) body.linkedinUrl = profile.linkedin_url;
+  // Forward the email confidence from the enrichment step so Prospector
+  // doesn't default the lead's email status to Unverified.
+  if (profile.work_email_status && ALLOWED_EMAIL_STATUSES.has(profile.work_email_status)) {
+    body.emailStatus = profile.work_email_status;
+  }
+  // Seniority from the enrichment step.  Prospector accepts only the
+  // canonical enum values; anything else is dropped client-side rather
+  // than 400-ing the whole add.
+  if (profile.seniority && ALLOWED_SENIORITIES.has(profile.seniority)) {
+    body.seniority = profile.seniority;
+  }
+  if (profile.function) body.function = profile.function;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 30_000);

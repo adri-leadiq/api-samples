@@ -32,6 +32,11 @@ fi
 # Each call counts as one credit regardless of page size.
 PAGE_SIZE=25
 
+# Safety cap on the total number of IDs to collect across all pages.
+# At PAGE_SIZE=25, the default of 100 means at most 4 pages / 4 credits.
+# Raise this once you are happy with the results.
+MAX_PEOPLE=100
+
 # Output file — stored next to this script's output/ folder.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUTPUT_FILE="$SCRIPT_DIR/../output/advanced_search_ids.txt"
@@ -113,21 +118,30 @@ while true; do
       echo "No results found. Try adjusting the filters."
       exit 0
     fi
-    echo "Found $total people. Fetching IDs ($PAGE_SIZE per page)..."
+    target=$(( total < MAX_PEOPLE ? total : MAX_PEOPLE ))
+    echo "Found $total people. Fetching up to $target IDs ($PAGE_SIZE per page)..."
     echo ""
   fi
 
-  # Extract every person ID from this page and append them to the output file.
+  # Extract every person ID from this page, appending up to MAX_PEOPLE total.
   # The API returns IDs inside the JSON as:  "id":"PersonID-xxxxxxxx-..."
   # grep finds all occurrences of that pattern; cut strips the surrounding
   # quotes so each line in the file contains only the raw ID string.
-  echo "$response" | grep -oE '"id":"[^"]+"' | cut -d'"' -f4 >> "$OUTPUT_FILE"
+  page_count=0
+  total_so_far=$(wc -l < "$OUTPUT_FILE" | tr -d ' ')
+  while IFS= read -r pid; do
+    if (( total_so_far >= MAX_PEOPLE )); then
+      break
+    fi
+    echo "$pid" >> "$OUTPUT_FILE"
+    page_count=$(( page_count + 1 ))
+    total_so_far=$(( total_so_far + 1 ))
+  done < <(echo "$response" | grep -oE '"id":"[^"]+"' | cut -d'"' -f4)
 
-  page_count=$(echo "$response" | grep -oE '"id":"[^"]+"' | wc -l | tr -d ' ')
   echo "  Page $page: $page_count IDs fetched"
 
-  # Stop once we have fetched all pages.
-  if (( skip + page_count >= total )); then
+  # Stop once we have fetched all pages (or hit the safety cap).
+  if (( total_so_far >= MAX_PEOPLE || skip + PAGE_SIZE >= total )); then
     break
   fi
 

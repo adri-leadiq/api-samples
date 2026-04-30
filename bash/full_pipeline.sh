@@ -64,11 +64,15 @@ DELAY_BETWEEN_CALLS=1
 
 # ── Prospector list settings (Steps 3–5) ──────────────────────────────────────
 
-# This name is intentionally different from sample 04 to avoid a 409 conflict.
-LIST_NAME="Sales Leaders in NH - Pipeline"
+# Unique per-run name (timestamp suffix) so reruns don't 409 on duplicates.
+RUN_TS=$(date -u +"%Y-%m-%dT%H-%M-%S-%3NZ" 2>/dev/null || date -u +"%Y-%m-%dT%H-%M-%SZ")
+LIST_NAME="Sales Leaders in NH - Pipeline - SH - $RUN_TS"
 LIST_DESCRIPTION="VP, Director, and Manager level Sales professionals in New Hampshire — created by the full_pipeline.sh end-to-end sample."
 
 EXPORT_PAGE_SIZE=100
+
+# Prospector accepts only these emailStatus values; anything else 400s.
+ALLOWED_EMAIL_STATUSES=" Verified VerifiedLikely Unverified "
 
 # ── Output ─────────────────────────────────────────────────────────────────────
 
@@ -177,7 +181,7 @@ echo "Step 2 — Enriching ${#PERSON_IDS[@]} profiles (1 credit each)"
 
 # Store enriched data in parallel indexed arrays.
 # Each index corresponds to one enriched person.
-declare -a E_IDS E_FIRST E_LAST E_FULL_NAMES E_TITLES E_COMPANIES E_EMAILS E_PHONES E_SENIORITIES E_FUNCTIONS E_LINKEDINS
+declare -a E_IDS E_FIRST E_LAST E_FULL_NAMES E_TITLES E_COMPANIES E_EMAILS E_EMAIL_STATUSES E_PHONES E_SENIORITIES E_FUNCTIONS E_LINKEDINS
 enrich_count=0
 total_ids=${#PERSON_IDS[@]}
 
@@ -200,7 +204,11 @@ for (( i=0; i<total_ids; i++ )); do
   seniority=$(echo "$response" | grep -oE '"seniority":"[^"]*"' | head -1 | cut -d'"' -f4)
   func=$(echo "$response" | grep -oE '"function":"[^"]*"' | head -1 | cut -d'"' -f4)
   company=$(echo "$response" | grep -oE '"companyInfo":\{"name":"[^"]*"' | head -1 | grep -oE '"name":"[^"]*"' | cut -d'"' -f4)
-  work_email=$(echo "$response" | grep -oE '"value":"[^"@]*@[^"]+"' | head -1 | cut -d'"' -f4)
+  # Pull value+status together so the prospect insert can forward emailStatus
+  # to Prospector (otherwise the lead defaults to Unverified).
+  email_pair=$(echo "$response" | grep -oE '"value":"[^"]*@[^"]+","status":"[^"]+"' | head -1)
+  work_email=$(echo "$email_pair"        | cut -d'"' -f4)
+  work_email_status=$(echo "$email_pair" | cut -d'"' -f8)
   phone=$(echo "$response" | grep -oE '"personalPhones":\[(\{[^]]*\})*' | \
     grep -oE '"value":"[^"]+"' | head -1 | cut -d'"' -f4)
   linkedin_url=$(echo "$response" | grep -oE '"linkedinUrl":"[^"]*"' | head -1 | cut -d'"' -f4)
@@ -214,6 +222,7 @@ for (( i=0; i<total_ids; i++ )); do
   E_FUNCTIONS[$enrich_count]="$func"
   E_COMPANIES[$enrich_count]="$company"
   E_EMAILS[$enrich_count]="$work_email"
+  E_EMAIL_STATUSES[$enrich_count]="$work_email_status"
   E_PHONES[$enrich_count]="$phone"
   E_LINKEDINS[$enrich_count]="$linkedin_url"
 
@@ -271,6 +280,7 @@ for (( i=0; i<enrich_count; i++ )); do
   func="${E_FUNCTIONS[$i]}"
   company="${E_COMPANIES[$i]}"
   email="${E_EMAILS[$i]}"
+  email_status="${E_EMAIL_STATUSES[$i]}"
   phone="${E_PHONES[$i]}"
   linkedin_url="${E_LINKEDINS[$i]}"
 
@@ -288,6 +298,9 @@ for (( i=0; i<enrich_count; i++ )); do
   [[ -n "$func"        ]] && pbody+=",\"function\":\"$func\""
   [[ -n "$company"     ]] && pbody+=",\"company\":\"$company\""
   [[ -n "$email"       ]] && pbody+=",\"workEmail\":\"$email\""
+  if [[ -n "$email_status" && "$ALLOWED_EMAIL_STATUSES" == *" $email_status "* ]]; then
+    pbody+=",\"emailStatus\":\"$email_status\""
+  fi
   [[ -n "$phone"       ]] && pbody+=",\"mobilePhone\":\"$phone\""
   [[ -n "$linkedin_url" ]] && pbody+=",\"linkedinUrl\":\"$linkedin_url\""
   pbody+="}"

@@ -72,10 +72,21 @@ fi
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
+# Allowed values for the `seniority` field on the Prospector API input.
+# Anything else is dropped client-side rather than 400-ing the whole add.
+ALLOWED_SENIORITIES=" VP Manager Director Executive SeniorIndividualContributor Other "
+
 # Add one prospect to the list.
-# Arguments: $1=first_name, $2=last_name, $3=title, $4=company, $5=work_email, $6=mobile_phone
+# Arguments: $1=first_name, $2=last_name, $3=title, $4=company, $5=work_email,
+#            $6=mobile_phone, $7=seniority, $8=function, $9=linkedin_url
+#
+# NOTE: This bash sample does not forward the `emailStatus` field — bash 03
+# cannot reliably correlate each email value with its status without a real
+# JSON parser. Use the python or typescript samples if the verified-vs-
+# unverified distinction matters for your pipeline.
 add_prospect() {
   local first="$1" last="$2" title="$3" company="$4" email="$5" phone="$6"
+  local seniority="$7" func="$8" linkedin_url="$9"
 
   # The API requires both first and last name.
   if [[ -z "$first" || -z "$last" ]]; then
@@ -86,12 +97,18 @@ add_prospect() {
   # Build the JSON request body.  We only include optional fields when they
   # have a value so we keep the request clean.
   local body="{\"firstName\":\"$first\",\"lastName\":\"$last\""
-  [[ -n "$title"   ]] && body+=",\"title\":\"$title\""
-  [[ -n "$company" ]] && body+=",\"company\":\"$company\""
-  [[ -n "$email"   ]] && body+=",\"workEmail\":\"$email\""
+  [[ -n "$title"        ]] && body+=",\"title\":\"$title\""
+  [[ -n "$company"      ]] && body+=",\"company\":\"$company\""
+  [[ -n "$email"        ]] && body+=",\"workEmail\":\"$email\""
   # direct_phone comes from personalPhones in the enrichment step.
   # The Prospector API stores this as a mobile phone number.
-  [[ -n "$phone"   ]] && body+=",\"mobilePhone\":\"$phone\""
+  [[ -n "$phone"        ]] && body+=",\"mobilePhone\":\"$phone\""
+  [[ -n "$linkedin_url" ]] && body+=",\"linkedinUrl\":\"$linkedin_url\""
+  # Drop seniority unless it matches one of the canonical enum values.
+  if [[ -n "$seniority" && "$ALLOWED_SENIORITIES" == *" $seniority "* ]]; then
+    body+=",\"seniority\":\"$seniority\""
+  fi
+  [[ -n "$func"         ]] && body+=",\"function\":\"$func\""
   body+="}"
 
   local response http_code
@@ -130,13 +147,20 @@ echo ""
 while IFS= read -r line; do
   i=$((i + 1))
 
-  # Extract each field using bash substring notation: ${var:offset:length}
+  # Extract each field using bash substring notation: ${var:offset:length}.
+  # Column widths come from the printf in 03_enrich_profiles.sh:
+  #   %-40s ID  %-25s Name  %-12s Seniority  %-14s Function
+  #   %-35s Work Email  %-20s Direct Phone  %-60s LinkedIn URL  %s Title
+  # Each %-Ns is followed by a single space separator, hence the +1 offsets.
   # xargs strips leading/trailing whitespace from each extracted value.
-  person_id=$(echo "${line:0:40}"  | xargs)
-  full_name=$(echo "${line:41:25}" | xargs)
-  work_email=$(echo "${line:67:35}" | xargs)
-  direct_phone=$(echo "${line:103:20}" | xargs)
-  title=$(echo "${line:124}" | xargs)
+  person_id=$(   echo "${line:0:40}"     | xargs)
+  full_name=$(   echo "${line:41:25}"    | xargs)
+  seniority=$(   echo "${line:67:12}"    | xargs)
+  func=$(        echo "${line:80:14}"    | xargs)
+  work_email=$(  echo "${line:95:35}"    | xargs)
+  direct_phone=$(echo "${line:131:20}"   | xargs)
+  linkedin_url=$(echo "${line:152:60}"   | xargs)
+  title=$(       echo "${line:213}"      | xargs)
 
   # Skip the header row (starts with "ID") and divider lines (start with "-").
   [[ "$person_id" == "ID" || "$person_id" == -* ]] && continue
@@ -152,10 +176,14 @@ while IFS= read -r line; do
   [[ "$work_email"   == "—" ]] && work_email=""
   [[ "$direct_phone" == "—" ]] && direct_phone=""
   [[ "$title"        == "—" ]] && title=""
+  [[ "$seniority"    == "—" ]] && seniority=""
+  [[ "$func"         == "—" ]] && func=""
+  [[ "$linkedin_url" == "—" ]] && linkedin_url=""
 
   printf "[%d/%d] %s ..." "$i" "$total" "$full_name"
 
-  result=$(add_prospect "$first" "$last" "$title" "" "$work_email" "$direct_phone")
+  result=$(add_prospect "$first" "$last" "$title" "" "$work_email" \
+    "$direct_phone" "$seniority" "$func" "$linkedin_url")
   echo " $result"
 
   if [[ "$result" == "added" ]]; then

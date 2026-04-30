@@ -182,7 +182,8 @@ def pick_work_email(current_positions):
 
     # Sort by confidence and return the best one.
     candidates.sort(key=lambda e: priority.get(e.get("status") or "", 99))
-    return candidates[0]["value"]
+    best = candidates[0]
+    return {"value": best["value"], "status": best.get("status")}
 
 
 def pick_personal_phone(personal_phones):
@@ -203,18 +204,22 @@ def extract_profile(person):
     company_info = current.get("companyInfo") or {}
 
     linkedin = person.get("linkedin") or {}
+    email = pick_work_email(positions)
     return {
-        "id":           person.get("id"),
-        "full_name":    name.get("fullName"),
-        "first_name":   name.get("first"),
-        "last_name":    name.get("last"),
-        "title":        current.get("title"),
-        "seniority":    current.get("seniority"),
-        "function":     current.get("function"),
-        "company":      company_info.get("name"),
-        "work_email":   pick_work_email(positions),
-        "direct_phone": pick_personal_phone(person.get("personalPhones")),
-        "linkedin_url": linkedin.get("linkedinUrl"),
+        "id":                person.get("id"),
+        "full_name":         name.get("fullName"),
+        "first_name":        name.get("first"),
+        "last_name":         name.get("last"),
+        "title":             current.get("title"),
+        "seniority":         current.get("seniority"),
+        "function":          current.get("function"),
+        "company":           company_info.get("name"),
+        "work_email":        email["value"] if email else None,
+        # Confidence of `work_email` (Verified | VerifiedLikely | Unverified).
+        # Forwarded by 05 so Prospector doesn't default the lead to Unverified.
+        "work_email_status": email["status"] if email else None,
+        "direct_phone":      pick_personal_phone(person.get("personalPhones")),
+        "linkedin_url":      linkedin.get("linkedinUrl"),
     }
 
 # ── Main ───────────────────────────────────────────────────────────────────────

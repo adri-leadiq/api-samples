@@ -66,7 +66,7 @@ const ENRICH_DELAY_MS = 500;
 // ── Prospector list settings (Steps 3–5) ──────────────────────────────────────
 
 // This name is intentionally different from sample 04 to avoid a 409 conflict.
-const LIST_NAME = "Sales Leaders in NH - Pipeline - TS";
+const LIST_NAME = `Sales Leaders in NH - Pipeline - TS - ${new Date().toISOString().replace(/[:.]/g, "-")}`;
 const LIST_DESCRIPTION =
   "VP, Director, and Manager level Sales professionals in New Hampshire " +
   "— created by the full_pipeline.ts end-to-end sample.";
@@ -107,9 +107,13 @@ interface EnrichedProfile {
   function: string | null;
   company: string | null;
   work_email: string | null;
+  work_email_status: string | null;
   direct_phone: string | null;
   linkedin_url: string | null;
 }
+
+// Prospector accepts only these values for emailStatus; anything else 400s.
+const ALLOWED_EMAIL_STATUSES = new Set(["Verified", "VerifiedLikely", "Unverified"]);
 
 interface ProspectorList { id: string; name: string; createdAt: string }
 
@@ -167,10 +171,10 @@ async function graphqlRequest<T>(
     if (result.errors) {
       const error = result.errors[0];
       const status = error.extensions?.response?.status;
-      if (status === 401)      console.error("\nError: Invalid API key.");
+      if (status === 401) console.error("\nError: Invalid API key.");
       else if (status === 402) console.error("\nError: Insufficient credits.");
       else if (status === 429) console.error("\nError: Too many requests. Wait a moment and try again.");
-      else                     console.error(`\nAPI error: ${error.message ?? "Unknown error"}`);
+      else console.error(`\nAPI error: ${error.message ?? "Unknown error"}`);
       process.exit(1);
     }
 
@@ -276,9 +280,11 @@ interface PersonRecord {
   personalPhones?: Array<{ value: string; verificationStatus: string }>;
 }
 
+interface PickedContact { value: string; status: string }
+
 function bestEmail(
   positions: PersonRecord["currentPositions"]
-): string | null {
+): PickedContact | null {
   const skip = new Set(["Invalid", "Suppressed"]);
   const priority: Record<string, number> = { Verified: 0, VerifiedLikely: 1, Unverified: 2 };
   const candidates = (positions ?? []).flatMap((p) =>
@@ -286,11 +292,17 @@ function bestEmail(
   );
   if (!candidates.length) return null;
   candidates.sort((a, b) => (priority[a.status] ?? 99) - (priority[b.status] ?? 99));
-  return candidates[0].value;
+  return { value: candidates[0].value, status: candidates[0].status };
 }
 
-function bestPhone(phones: PersonRecord["personalPhones"]): string | null {
-  return phones?.[0]?.value ?? null;
+function bestPhone(phones: PersonRecord["personalPhones"]): PickedContact | null {
+  const phone = phones?.[0];
+  return phone ? { value: phone.value, status: phone.verificationStatus } : null;
+}
+
+function statusSign(picked: PickedContact | null): string {
+  if (!picked) return "-";
+  return picked.status === "Verified" ? "✓" : "+";
 }
 
 async function enrichProfiles(ids: string[]): Promise<EnrichedProfile[]> {
@@ -315,24 +327,26 @@ async function enrichProfiles(ids: string[]): Promise<EnrichedProfile[]> {
       const person = results[0];
       const current = person.currentPositions?.[0] ?? {};
 
+      const email = bestEmail(person.currentPositions);
+      const phone = bestPhone(person.personalPhones);
+
       const profile: EnrichedProfile = {
-        id:           person.id,
-        full_name:    person.name?.fullName ?? null,
-        first_name:   person.name?.first ?? null,
-        last_name:    person.name?.last ?? null,
-        title:        current.title ?? null,
-        seniority:    current.seniority ?? null,
-        function:     current.function ?? null,
-        company:      current.companyInfo?.name ?? null,
-        work_email:   bestEmail(person.currentPositions),
-        direct_phone: bestPhone(person.personalPhones),
+        id: person.id,
+        full_name: person.name?.fullName ?? null,
+        first_name: person.name?.first ?? null,
+        last_name: person.name?.last ?? null,
+        title: current.title ?? null,
+        seniority: current.seniority ?? null,
+        function: current.function ?? null,
+        company: current.companyInfo?.name ?? null,
+        work_email: email?.value ?? null,
+        work_email_status: email?.status ?? null,
+        direct_phone: phone?.value ?? null,
         linkedin_url: person.linkedin?.linkedinUrl ?? null,
       };
       enriched.push(profile);
 
-      const emailTag = profile.work_email   ? "✓ email" : "— email";
-      const phoneTag = profile.direct_phone ? "✓ phone" : "— phone";
-      console.log(`${emailTag}  ${phoneTag}`);
+      console.log(`${statusSign(email)} email  ${statusSign(phone)} phone`);
     }
 
     if (i < ids.length - 1) await sleep(ENRICH_DELAY_MS);
@@ -399,8 +413,8 @@ async function addProspects(
   for (let i = 0; i < profiles.length; i++) {
     const profile = profiles[i];
     const first = (profile.first_name ?? "").trim();
-    const last  = (profile.last_name  ?? "").trim();
-    const name  =
+    const last = (profile.last_name ?? "").trim();
+    const name =
       profile.full_name || `${first} ${last}`.trim() || "—";
 
     process.stdout.write(`  [${i + 1}/${total}] ${name} ... `);
@@ -417,11 +431,14 @@ async function addProspects(
     if (profile.function)     body.function    = profile.function;
     if (profile.company)      body.company     = profile.company;
     if (profile.work_email)   body.workEmail   = profile.work_email;
+    if (profile.work_email_status && ALLOWED_EMAIL_STATUSES.has(profile.work_email_status)) {
+      body.emailStatus = profile.work_email_status;
+    }
     if (profile.direct_phone) body.mobilePhone = profile.direct_phone;
     if (profile.linkedin_url) body.linkedinUrl = profile.linkedin_url;
 
     const controller = new AbortController();
-    const timeoutId  = setTimeout(() => controller.abort(), 30_000);
+    const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
     try {
       const response = await fetch(
@@ -465,11 +482,11 @@ async function fetchAndExport(listId: string, profiles: EnrichedProfile[]): Prom
     if (cursor) url.searchParams.set("cursor", cursor);
 
     const controller = new AbortController();
-    const timeoutId  = setTimeout(() => controller.abort(), 30_000);
+    const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
     try {
-      const response  = await fetch(url.toString(), { headers: prospectorHeaders(), signal: controller.signal });
-      const result    = (await response.json()) as { items: ProspectSummary[]; nextCursor: string | null; message?: string };
+      const response = await fetch(url.toString(), { headers: prospectorHeaders(), signal: controller.signal });
+      const result = (await response.json()) as { items: ProspectSummary[]; nextCursor: string | null; message?: string };
 
       if (!response.ok) { console.error(`\nError ${response.status}: ${result.message ?? "Unknown error"}`); process.exit(1); }
 
@@ -533,9 +550,9 @@ async function main(): Promise<void> {
   console.log("=".repeat(60));
   console.log();
 
-  const ids      = await getAllIds();
+  const ids = await getAllIds();
   const profiles = await enrichProfiles(ids);
-  const listId   = await createList();
+  const listId = await createList();
   await addProspects(listId, profiles);
   await fetchAndExport(listId, profiles);
 

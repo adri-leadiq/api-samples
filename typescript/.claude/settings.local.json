@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(python *)",
+      "Bash(bash -n D:/Work/leadiq/api-samples/bash/full_pipeline.sh)",
+      "Bash(bash -n D:/Work/leadiq/api-samples/bash/graphql/02_advanced_search.sh)"
+    ]
+  }
+}

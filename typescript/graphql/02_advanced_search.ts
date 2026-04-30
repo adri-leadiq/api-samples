@@ -31,6 +31,11 @@ const API_KEY = process.env.LEADIQ_API_KEY;
 // but each call still counts as one credit regardless of page size.
 const PAGE_SIZE = 25;
 
+// Safety cap on the total number of IDs to collect across all pages.
+// At PAGE_SIZE=25, the default of 100 means at most 4 pages 
+// Raise this once you are happy with the results.
+const MAX_PEOPLE = 100;
+
 // ── Search filters ─────────────────────────────────────────────────────────────
 
 // The seniority levels we want to include.
@@ -190,18 +195,20 @@ async function main(): Promise<void> {
         console.log("No results found. Try adjusting the filters.");
         return;
       }
+      const target = Math.min(totalPeople, MAX_PEOPLE);
       console.log(
-        `Found ${totalPeople} people. Fetching IDs (${PAGE_SIZE} per page)...\n`
+        `Found ${totalPeople} people. Fetching up to ${target} IDs (${PAGE_SIZE} per page)...\n`
       );
     }
 
-    // Collect the IDs from this page.
+    // Collect the IDs from this page, stopping at MAX_PEOPLE.
     for (const person of people) {
+      if (allIds.length >= MAX_PEOPLE) break;
       allIds.push(person.id);
     }
 
-    // Stop when we have fetched everything.
-    if (skip + people.length >= totalPeople) {
+    // Stop when we have fetched everything (or hit the safety cap).
+    if (allIds.length >= MAX_PEOPLE || skip + people.length >= totalPeople) {
       break;
     }
 

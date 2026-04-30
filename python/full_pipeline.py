@@ -39,6 +39,8 @@ import csv
 import os
 import sys
 import time
+from datetime import datetime, timezone
+
 import requests
 
 # ── Configuration ─────────────────────────────────────────────────────────────
@@ -73,12 +75,16 @@ ENRICH_DELAY = 0.5  # seconds
 
 # ── Prospector list settings (Steps 3–5) ──────────────────────────────────────
 
-# This name is intentionally different from sample 04 to avoid a 409 conflict.
-LIST_NAME        = "Sales Leaders in NH - Pipeline"
+# Unique per-run name (timestamp suffix) so reruns don't 409 on duplicates.
+_RUN_TS          = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S-%fZ")
+LIST_NAME        = f"Sales Leaders in NH - Pipeline - PY - {_RUN_TS}"
 LIST_DESCRIPTION = (
     "VP, Director, and Manager level Sales professionals in New Hampshire "
     "— created by the full_pipeline.py end-to-end sample."
 )
+
+# Prospector accepts only these emailStatus values; anything else 400s.
+ALLOWED_EMAIL_STATUSES = {"Verified", "VerifiedLikely", "Unverified"}
 
 # How many prospects to request per Prospector API call when exporting (max 100).
 EXPORT_PAGE_SIZE = 100
@@ -256,6 +262,8 @@ query SearchPeople($input: SearchPeopleInput!) {
 def _best_email(positions):
     # Work emails live inside each job position.  We return the most confident
     # address found across all positions, skipping invalid or suppressed ones.
+    # Returns a dict with value+status so the caller can forward the status to
+    # Prospector (which otherwise defaults the lead's emailStatus to Unverified).
     skip     = {"Invalid", "Suppressed"}
     priority = {"Verified": 0, "VerifiedLikely": 1, "Unverified": 2}
     candidates = [
@@ -267,7 +275,8 @@ def _best_email(positions):
     if not candidates:
         return None
     candidates.sort(key=lambda e: priority.get(e.get("status") or "", 99))
-    return candidates[0]["value"]
+    best = candidates[0]
+    return {"value": best["value"], "status": best.get("status")}
 
 
 def _best_phone(phones):
@@ -298,18 +307,20 @@ def enrich_profiles(ids):
             current   = positions[0] if positions else {}
 
             linkedin = person.get("linkedin") or {}
+            email = _best_email(positions)
             profile = {
-                "id":           person.get("id"),
-                "full_name":    name.get("fullName"),
-                "first_name":   name.get("first"),
-                "last_name":    name.get("last"),
-                "title":        current.get("title"),
-                "seniority":    current.get("seniority"),
-                "function":     current.get("function"),
-                "company":      (current.get("companyInfo") or {}).get("name"),
-                "work_email":   _best_email(positions),
-                "direct_phone": _best_phone(person.get("personalPhones")),
-                "linkedin_url": linkedin.get("linkedinUrl"),
+                "id":                person.get("id"),
+                "full_name":         name.get("fullName"),
+                "first_name":        name.get("first"),
+                "last_name":         name.get("last"),
+                "title":             current.get("title"),
+                "seniority":         current.get("seniority"),
+                "function":          current.get("function"),
+                "company":           (current.get("companyInfo") or {}).get("name"),
+                "work_email":        email["value"]  if email else None,
+                "work_email_status": email["status"] if email else None,
+                "direct_phone":      _best_phone(person.get("personalPhones")),
+                "linkedin_url":      linkedin.get("linkedinUrl"),
             }
             enriched.append(profile)
 
@@ -390,6 +401,9 @@ def add_prospects(list_id, profiles):
         if profile.get("function"):     body["function"]    = profile["function"]
         if profile.get("company"):      body["company"]     = profile["company"]
         if profile.get("work_email"):   body["workEmail"]   = profile["work_email"]
+        # Forward the email confidence so Prospector doesn't default to Unverified.
+        if profile.get("work_email_status") in ALLOWED_EMAIL_STATUSES:
+            body["emailStatus"] = profile["work_email_status"]
         if profile.get("direct_phone"): body["mobilePhone"] = profile["direct_phone"]
         if profile.get("linkedin_url"): body["linkedinUrl"] = profile["linkedin_url"]
 

@@ -115,6 +115,11 @@ interface EnrichedProfile {
   function: string | null;
   company: string | null;
   work_email: string | null;
+  // Confidence we have in `work_email`. Same vocabulary as the API:
+  // Verified | VerifiedLikely | Unverified.  Used by the next sample to
+  // tell Prospector whether to mark the email as verified instead of
+  // defaulting it to Unverified.
+  work_email_status: string | null;
   direct_phone: string | null;
   linkedin_url: string | null;
 }
@@ -236,7 +241,9 @@ async function callApi(
  *
  * We pick the most confident address and ignore Invalid / Suppressed ones.
  */
-function pickWorkEmail(currentPositions: PositionRecord[]): string | null {
+function pickWorkEmail(
+  currentPositions: PositionRecord[]
+): { value: string; status: string } | null {
   // Statuses we do not want to return.
   const skipStatuses = new Set(["Invalid", "Suppressed"]);
 
@@ -263,7 +270,8 @@ function pickWorkEmail(currentPositions: PositionRecord[]): string | null {
   candidates.sort(
     (a, b) => (priority[a.status] ?? 99) - (priority[b.status] ?? 99)
   );
-  return candidates[0].value;
+  const best = candidates[0];
+  return { value: best.value, status: best.status };
 }
 
 function pickPersonalPhone(personalPhones: PhoneRecord[]): string | null {
@@ -278,6 +286,7 @@ function extractProfile(person: PersonRecord): EnrichedProfile {
   // Use the first current position for title and company.
   // Most people have only one current job, but some may have more.
   const current = person.currentPositions?.[0] ?? null;
+  const email = pickWorkEmail(person.currentPositions ?? []);
 
   return {
     id: person.id,
@@ -288,7 +297,8 @@ function extractProfile(person: PersonRecord): EnrichedProfile {
     seniority: current?.seniority ?? null,
     function: current?.function ?? null,
     company: current?.companyInfo?.name ?? null,
-    work_email: pickWorkEmail(person.currentPositions ?? []),
+    work_email: email?.value ?? null,
+    work_email_status: email?.status ?? null,
     direct_phone: pickPersonalPhone(person.personalPhones ?? []),
     linkedin_url: person.linkedin?.linkedinUrl ?? null,
   };

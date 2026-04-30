@@ -26,6 +26,11 @@ API_KEY = os.getenv("LEADIQ_API_KEY")
 # but each call still counts as one credit regardless of page size.
 PAGE_SIZE = 25
 
+# Safety cap on the total number of IDs to collect across all pages.
+# At PAGE_SIZE=25, the default of 100 means at most 4 pages / 4 credits.
+# Raise this once you are happy with the results.
+MAX_PEOPLE = 100
+
 # ── Search filters ─────────────────────────────────────────────────────────────
 
 # The seniority levels we want to include.
@@ -142,14 +147,17 @@ def main():
             if total == 0:
                 print("No results found. Try adjusting the filters.")
                 return
-            print(f"Found {total} people. Fetching IDs ({PAGE_SIZE} per page)...\n")
+            target = min(total, MAX_PEOPLE)
+            print(f"Found {total} people. Fetching up to {target} IDs ({PAGE_SIZE} per page)...\n")
 
-        # Collect the IDs from this page.
+        # Collect the IDs from this page, stopping at MAX_PEOPLE.
         for person in people:
+            if len(all_ids) >= MAX_PEOPLE:
+                break
             all_ids.append(person["id"])
 
-        # Stop when we have fetched everything.
-        if skip + len(people) >= total:
+        # Stop when we have fetched everything (or hit the safety cap).
+        if len(all_ids) >= MAX_PEOPLE or skip + len(people) >= total:
             break
 
         skip += PAGE_SIZE

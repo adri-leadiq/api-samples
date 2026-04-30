@@ -85,6 +85,15 @@ def add_prospect(list_id, profile):
     if not first or not last:
         return None, "missing name"
 
+    # Allowed values for `emailStatus` and `seniority` on the Prospector API
+    # input. Anything else gets a 400, so we filter client-side and drop the
+    # field rather than fail the whole add.
+    ALLOWED_EMAIL_STATUSES = {"Verified", "VerifiedLikely", "Unverified"}
+    ALLOWED_SENIORITIES = {
+        "VP", "Manager", "Director", "Executive",
+        "SeniorIndividualContributor", "Other",
+    }
+
     # Build the request body with whatever fields are available.
     # We only include a field if it has a value — sending null fields is fine
     # but skipping them keeps the request clean.
@@ -96,10 +105,22 @@ def add_prospect(list_id, profile):
         body["company"] = profile["company"]    # company name
     if profile.get("work_email"):
         body["workEmail"] = profile["work_email"]   # professional email address
+    # Forward the email confidence from the enrichment step so Prospector
+    # doesn't default the lead's email status to Unverified.
+    if profile.get("work_email_status") in ALLOWED_EMAIL_STATUSES:
+        body["emailStatus"] = profile["work_email_status"]
     if profile.get("direct_phone"):
         # direct_phone comes from personalPhones in the enrichment step.
         # The Prospector API stores this as a mobile phone number.
         body["mobilePhone"] = profile["direct_phone"]
+    if profile.get("linkedin_url"):
+        body["linkedinUrl"] = profile["linkedin_url"]
+    # Seniority must match the canonical enum values; bad values are dropped
+    # client-side rather than 400-ing the whole add.
+    if profile.get("seniority") in ALLOWED_SENIORITIES:
+        body["seniority"] = profile["seniority"]
+    if profile.get("function"):
+        body["function"] = profile["function"]
 
     try:
         response = requests.post(
